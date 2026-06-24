@@ -8,60 +8,51 @@ cursor.execute('CREATE TABLE IF NOT EXISTS livros(id INTEGER PRIMARY KEY ' \
 'AUTOINCREMENT, titulo TEXT UNIQUE, emprestado INTEGER CHECK (emprestado IN (0, 1)))')
 
 def cadastrar():
-    titulo = input("Qual o nome do titulo do livro? ")
-    cursor.execute('INSERT INTO livros(titulo, emprestado) values(?, ?)', (titulo, 0))
-
-    conexao.commit()
-    return print("Livro cadastrado")
-
-def livros_disponiveis():
     try:
-        cursor.execute('SELECT titulo FROM livros WHERE emprestado = 0')
-        if cursor.fetchall != []:
-            resultado = [item[0] for item in cursor.fetchall()]
-            return resultado
-        print("Nenhum livro foi encontrado")
-        return
+        titulo = input("Qual o nome do titulo do livro? ")
+        cursor.execute('INSERT INTO livros(titulo, emprestado) values(?, ?)', (titulo, 0))
+
+        conexao.commit()
+        return print("Livro cadastrado")
     except sqlite3.IntegrityError:
         print("Ocorreu um erro")
 
-def livros_indisponiveis():
-    try:
-        cursor.execute('SELECT titulo FROM livros WHERE emprestado = 1')
-        if cursor.fetchall != []:
-            lista = [item[0] for item in cursor.fetchall()]
-            return lista
-        else:
-            print("Nenhum livro foi encontrado")
-            return
-    except sqlite3.IntegrityError:
-        print("Ocorreu um erro")
+def disponibilidade_livros(disponivel):
+    cursor.execute('SELECT titulo FROM livros WHERE emprestado = ?', (disponivel,))
+    lista = [item[0] for item in cursor.fetchall()]
+    return lista
 
 def emprestar():
+    try:
+        livro = input("Qual livro ira emprestar? ")
+        if livro in disponibilidade_livros(0):
+            agraciado = input("Para quem ira emprestar? ")
 
-    livro = input("Qual livro ira emprestar? ")
-    if livro in livros_disponiveis():
-        agraciado = input("Para quem ira emprestar? ")
+            if agraciado in pessoa.pessoas_cadastradas():
 
-        if agraciado in pessoa.pessoas_cadastradas():
-            cursor.execute('UPDATE livros SET emprestado = 1 WHERE titulo = ?', (livro,))
-            conexao.commit()
-            print(f"Livro {livro} foi emprestado a {agraciado}.")
-            return
+                pessoa.pegar_livro(livro, agraciado)
+
+                cursor.execute('UPDATE livros SET emprestado = 1 WHERE titulo = ?', (livro,))
+                conexao.commit()
+                return
+            else:
+                print("Não foi possivel emprestar o livro")
+                return
         else:
-            print("Não foi possivel emprestar o livro")
-            return
-    else:
-        print("Livro não disponivel.")
+            print("Livro não disponivel.")
+    except sqlite3.IntegrityError:
+        print("Ocorreu um erro")
 
 def devolver():
-
-    livro = input("Qual livro ira devolver? ")
-    if livro in livros_indisponiveis():
-        cursor.execute('UPDATE livros SET emprestado = 0 WHERE titulo = ?', (livro,))
-        conexao.commit()
-        print(f"Livro {livro} foi devolvido a biblioteca.")
-        return
-    else:
-        print("Livro não encontrado")
-        return
+    try:
+        livro = input("Qual livro ira devolver? ")
+        if livro in disponibilidade_livros(1):
+            pessoa.devolver_livro(livro)
+            cursor.execute('UPDATE livros SET emprestado = 0 WHERE titulo = ?', (livro,))
+            conexao.commit()
+            return
+        else:
+            print("Esse livro não foi emprestado")
+            return
+    except sqlite3.IntegrityError:
+        print("Ocorreu um erro")
